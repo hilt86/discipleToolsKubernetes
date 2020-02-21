@@ -6,8 +6,6 @@ service:
   port: 80
   httpsPort: 443
   httpsTargetPort: https
-  # prometheus metrics. Can probably be removed.
-  metricsPort: 9117
   # externalTrafficPolicy retains original IP address so that we can limit based on src IP
   externalTrafficPolicy: Local
   annotations: {}
@@ -37,21 +35,23 @@ readinessProbeHeaders:
 ingress:
   enabled: true
   certManager: true
-  hostname: my.disciple.tools
+  hostname: dt.example.com
   annotations: 
-  - kubernetes.io/ingress.class: nginx
   # necessary to install disciple tools theme
-  - nginx.ingress.kubernetes.io/proxy-body-size: 8m
+   nginx.ingress.kubernetes.io/proxy-body-size: "8m"
   # limits access to an IP / CIDR range
-  - nginx.ingress.kubernetes.io/whitelist-source-range: 1.2.3.4/32
+   nginx.ingress.kubernetes.io/whitelist-source-range: "8.1.1.2/32,8.4.3.8/27"
+  # tells the ingress to use cluster issuer "letsencrypt-prod"
+   cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
   # This host entry is needed inaddition to hostname above and tls entry below
   hosts:
-  - name: my.disciple.tools
+  - name: dt.example.com
     path: /
   tls:
   - hosts:
-      - my.disciple.tools
-    secretName: my.disciple.tools-tls
+      - dt.example.com
+    secretName: dt.example.com-tls
 
 # create using k create configmap custom-htaccess --from-file wordpress-htaccess.conf
 # if you specify a different filename the key will be incorrect!

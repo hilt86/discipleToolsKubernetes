@@ -5,18 +5,17 @@ This guide provides instructions on how to get Disciple Tools running using the 
 ### Step by step 
 
 #### Install Helm
+Updated for Helm v3
 
 ```
-kubectl -n kube-system create serviceaccount tiller
-kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
-helm init --service-account=tiller
+helm repo add stable https://kubernetes-charts.storage.googleapis.com/
 ```
 
 #### Install ingress controller
 
+externalTrafficPolicy=local allows cluster to see real IP so we can apply the ACL
 ```
-# externalTrafficPolicy=local allows cluster to see real IP so we can apply the ACL
-helm install --name ingress stable/nginx-ingress --set controller.service.externalTrafficPolicy=Local
+helm install  ingress stable/nginx-ingress --set controller.service.externalTrafficPolicy=Local
 kubectl get svc ingress-nginx-ingress-controller -o jsonpath="{.status.loadBalancer.ingress[0].ip}"
 ```
 
@@ -30,25 +29,26 @@ instructions specific for their service.
 #### Install cert-manager (Jetstack version)
 
 ```
-helm repo add jetstack https://charts.jetstack.io
+kubectl apply --validate=false -f https://raw.githubusercontent.com/jetstack/cert-manager/v0.13.0/deploy/manifests/00-crds.yaml
 kubectl create namespace cert-manager
-kubectl label namespace cert-manager certmanager.k8s.io/disable-validation=true
-kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.8/deploy/manifests/00-crds.yaml
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install \
+  cert-manager \
+  --namespace cert-manager \
+  --version v0.13.0 \
+  --set ingressShim.defaultIssuerName=letsencrypt-prod \
+  --set ingressShim.defaultIssuerKind=ClusterIssuer \
+  --set ingressShim.defaultIssuerGroup=cert-manager.io \
+  jetstack/cert-manager
 ```
 
-Then
+##### Then create the issuer 
 
 ```
 kubectl create -f letsencrypt-prod.yml
 ```
 
-Once that has been applied install cert-manager using Helm
-
-```
-helm install --name cert-manager --namespace cert-manager --version v0.8.1 jetstack/cert-manager \
-   --set ingressShim.defaultIssuerName=letsencrypt-prod \
-   --set ingressShim.defaultIssuerKind=ClusterIssuer
-```
 With cert-manager installed it will automatically request and sign free SSL certificates from 
 letsencrypt and will renew certs when they are ready to expire.
 
@@ -62,8 +62,9 @@ letsencrypt and will renew certs when they are ready to expire.
 The file must be named accordingly otherwise the key will be incorrect
 
 ```
-helm install --name dtools stable/wordpress -f values-production.yaml
+helm install  dtools stable/wordpress -f values-production.yaml
 ```
+
 
 You should then be able to access your site using the FQDN specified earlier. All that remains is to install the
 Disciple Tools theme and customise the site to your liking.
@@ -99,8 +100,3 @@ is dumped and will return it to an operational state afterward.
 2. This should be thoroughly tested before live data is used. App lifecycle (updates and backup lifecycle specifically should be tested).
 3. Configure backup as a kubernetes Cronjob
 
-#### Links
-
-[Limiting access by IP](https://medium.com/@maninder.bindra/using-nginx-ingress-controller-to-restrict-access-by-ip-ip-whitelisting-for-a-service-deployed-to-bd5c86dc66d6)
-[Bitnami cert-manager tutorial](https://docs.bitnami.com/kubernetes/how-to/secure-kubernetes-services-with-ingress-tls-letsencrypt/)
-[Limit access to GKE master](https://cloud.google.com/kubernetes-engine/docs/how-to/authorized-networks?hl=en_GB&_ga=2.225641433.-278575634.1571199508)
